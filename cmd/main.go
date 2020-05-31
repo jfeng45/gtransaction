@@ -1,28 +1,29 @@
 package main
 
 import (
-	"database/sql"
 	"github.com/jfeng45/gtransaction/cmd/userdata"
-	"github.com/jfeng45/gtransaction/gdbc"
-	"github.com/pkg/errors"
+	"github.com/jfeng45/gtransaction/config"
+	"github.com/jfeng45/gtransaction/factory"
 	"log"
 	"time"
 )
 
 const (
-	DB_DRIVER_NAME       string = "mysql"
-	DB_SOURCE_NAME       string ="root:@tcp(localhost:4333)/service_config?charset=utf8"
+	DRIVER_NAME       string = "mysql"
+	DATA_SOURCE_NAME       string ="root:@tcp(localhost:4333)/service_config?charset=utf8"
+	TX = true
 )
 
 func main() {
 	tx :=true
-	testTxSql(tx)
-	//tx= false
-	//testSql(tx)
+	//tx := false
+	dsc := config.DatabaseConfig{DRIVER_NAME, DATA_SOURCE_NAME, tx}
+	testTxSql(&dsc)
+	//testSql(&dsc)
 }
 
-func testTxSql(tx bool) {
-	g, err :=initGdbc(tx)
+func testTxSql(dsc *config.DatabaseConfig) {
+	g, err :=factory.Build(dsc)
 	if err != nil {
 		log.Println("can't make connection:", err)
 	}
@@ -30,8 +31,8 @@ func testTxSql(tx bool) {
 	testModifyAndUnregisterWithTx(uds)
 }
 
-func testSql(tx bool) {
-	g, err :=initGdbc(tx)
+func testSql(dsc *config.DatabaseConfig) {
+	g, err :=factory.Build(dsc)
 	if err != nil {
 		log.Println("can't make connection:", err)
 	}
@@ -55,16 +56,16 @@ func testListUser(uds userdata.UserDataSql) {
 func testRegisterUser(uds userdata.UserDataSql) {
 	created, err := time.Parse(userdata.FORMAT_ISO8601_DATE, "2018-12-09")
 	if err != nil {
-		log.Printf("date format err:%+v\n", err)
+		log.Printf("date format err: %v\n", err)
 	}
 	name :="Brian"
 	department :="marketing"
 
 	id, err := uds.Insert(name, department,created)
 	if err != nil {
-		log.Printf("user registration failed:%v\n", err)
+		log.Printf("user registration failed: %v\n", err)
 	}
-	log.Printf("new user registered:id=", id)
+	log.Printf("new user registered:id= %v", id)
 }
 
 func testUnregister(username string, uds userdata.UserDataSql) error{
@@ -73,7 +74,7 @@ func testUnregister(username string, uds userdata.UserDataSql) error{
 	if err != nil {
 		return err
 	}
-	log.Printf("testUnregister successully: rowsAffected:",rowsAffected )
+	log.Printf("testUnregister successully: rowsAffected: %v",rowsAffected )
 	return nil
 }
 
@@ -81,22 +82,22 @@ func testModifyUser(id int64, uds userdata.UserDataSql) error{
 
 	created, err := time.Parse(userdata.FORMAT_ISO8601_DATE, "2019-12-01")
 	if err != nil {
-		log.Printf("date format err:%+v\n", err)
+		log.Printf("date format err: %v\n", err)
 	}
 	name := "Aditi"
 	department :="HR"
 	//var id int64= 28
 	rowsAffected, err := uds.Update(name, department,created, id)
 	if err != nil {
-		log.Printf("Modify user failed:%+v\n", err)
+		log.Printf("Modify user failed: %v\n", err)
 		return err
 	}
-	log.Printf("user modified succeed:rowsAffected=", rowsAffected)
+	log.Printf("user modified succeed:rowsAffected= %v", rowsAffected)
 	return nil
 }
 
 func testModifyAndUnregister(uds userdata.UserDataSql) error {
-	var id int64= 30
+	var id int64= 26
 	username := "Aditi"
 	err := testModifyUser(id, uds)
 	if err != nil {
@@ -115,34 +116,9 @@ func testModifyAndUnregisterWithTx(uds userdata.UserDataSql) {
 		return testModifyAndUnregister(uds)
 	})
 	if err != nil {
-		log.Printf("ModifyAndUnregisterWithTx failed:", err)
+		log.Printf("ModifyAndUnregisterWithTx failed: %v", err)
 	}
 }
 
-func initGdbc(tx bool) (gdbc.SqlGdbc,error) {
-
-	db, err := sql.Open(DB_DRIVER_NAME, DB_SOURCE_NAME)
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	// check the connection
-	err = db.Ping()
-	if err != nil {
-		return nil, errors.Wrap(err, "")
-	}
-	var sqlConn gdbc.SqlGdbc
-	if tx {
-		tx, err := db.Begin()
-		if err != nil {
-			return nil, err
-		}
-		sqlConn = &gdbc.SqlConnTx{DB: tx}
-		log.Printf("create TX:")
-	} else {
-		sqlConn = &gdbc.SqlDBTx{db}
-		log.Printf("create DB:")
-	}
-	return sqlConn, nil
-}
 
 

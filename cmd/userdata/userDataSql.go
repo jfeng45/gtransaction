@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	// use it to test transaction rollback
 	//DELETE_USER        string = "delete from userinf where username=?"
 	DELETE_USER        string = "delete from userinfo where username=?"
 	QUERY_USER                = "SELECT * FROM userinfo "
@@ -60,7 +61,7 @@ func (uds *UserDataSql) FindAll() error {
 		if err != nil {
 			log.Printf("date err:", err)
 		}
-		log.Printf("id=%v,name=%v,department=%v, date:=%v", id, name, department, created)
+		log.Printf("id=%v,name= %v,department= %v, date:= %v", id, name, department, created)
 
 	}
 	//need to check error for rows.Next()
