@@ -1,9 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/jfeng45/gtransaction/cmd/userdata"
 	"github.com/jfeng45/gtransaction/config"
 	"github.com/jfeng45/gtransaction/factory"
+	"github.com/jfeng45/gtransaction/gdbc"
 	"log"
 	"time"
 )
@@ -18,8 +20,20 @@ func main() {
 	tx :=true
 	//tx := false
 	dsc := config.DatabaseConfig{DRIVER_NAME, DATA_SOURCE_NAME, tx}
-	testTxSql(&dsc)
+	//testTxSql(&dsc)
 	//testSql(&dsc)
+	testBuildSqlDB(&dsc)
+}
+
+func testBuildSqlDB(dsc *config.DatabaseConfig) {
+	db, err :=factory.BuildSqlDB(dsc)
+	if err != nil {
+		log.Println("can't make connection:", err)
+	}
+	tx :=true
+	gdbc, err :=buildGdbc(db,tx )
+	uds := userdata.UserDataSql{gdbc}
+	testModifyAndUnregisterWithTx(uds)
 }
 
 func testTxSql(dsc *config.DatabaseConfig) {
@@ -97,7 +111,7 @@ func testModifyUser(id int64, uds userdata.UserDataSql) error{
 }
 
 func testModifyAndUnregister(uds userdata.UserDataSql) error {
-	var id int64= 26
+	var id int64= 27
 	username := "Aditi"
 	err := testModifyUser(id, uds)
 	if err != nil {
@@ -120,5 +134,19 @@ func testModifyAndUnregisterWithTx(uds userdata.UserDataSql) {
 	}
 }
 
-
+func buildGdbc(sdb *sql.DB,tx bool) (gdbc.SqlGdbc, error){
+	var sdt gdbc.SqlGdbc
+	if tx {
+		tx, err := sdb.Begin()
+		if err != nil {
+			return nil, err
+		}
+		sdt = &gdbc.SqlConnTx{DB: tx}
+		log.Println("buildGdbc(), create TX:")
+	} else {
+		sdt = &gdbc.SqlDBTx{sdb}
+		log.Println("buildGdbc(), create DB:")
+	}
+	return sdt, nil
+}
 
